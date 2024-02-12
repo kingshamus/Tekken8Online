@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tournament Table</title>
+  <!-- Include Tabulator CSS -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.1.0/css/tabulator.min.css" rel="stylesheet">
+  <!-- Include Font Awesome for the spinner -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+  <style>
+    #loadingSpinner {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="loadingSpinner" style="text-align: center; margin-top: 20px;">
+    <i class="fas fa-spinner fa-spin fa-3x"></i>
+  </div>
+  <div id="tableContainer" style="display: none;">
+    <div id="tableElement"></div>
+  </div>
+
+  <!-- Include Tabulator JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.1.0/js/tabulator.min.js"></script>
+  <!-- Include Moment.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <!-- Include Axios -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    // JavaScript code here
+    const token = "fce7d38cd20cfa58739be8d97eb2358b";
+    const headers = { "Authorization": "Bearer " + token };
+
+    const query = `query TournamentsByVideogame($perPage: Int!, $videogameId: ID!) {
+      tournaments(query: {
+        perPage: $perPage
+        page: 1
+        sortBy: "startAt asc"
+        filter: {
+          upcoming: true
+          videogameIds: [
+            $videogameId
+          ]
+        }
+      }) {
+        nodes {
+          name
+          url
+          isRegistrationOpen
+          startAt
+          isOnline
+          countryCode
+        }
+      }
+    }`;
+
+    const variables = {
+      perPage: 300,
+      videogameId: 49783
+    };
+
+    const url = 'https://api.start.gg/gql/alpha';
+
+    // Show loading spinner
+    document.getElementById('loadingSpinner').style.display = 'block';
+
+    axios.post(url, { query, variables }, { headers })
+      .then(response => {
+        const tournaments = response.data.data.tournaments.nodes;
+        const filteredTournaments = tournaments.filter(tournament => tournament.isRegistrationOpen && tournament.isOnline);
+
+        const formattedTournaments = filteredTournaments.map(tournament => ({
+          Name: tournament.name,
+          Start_Time_UTC: moment.unix(tournament.startAt).utc().format('YYYY-MM-DD HH:mm:ss'),
+          Link: `https://start.gg${tournament.url}`
+        }));
+
+        const tableData = {
+          columns: [
+            { title: 'Name', field: 'Name' },
+            { title: 'Start Time (UTC)', field: 'Start_Time_UTC' },
+            { title: 'Link', field: 'Link', formatter: 'link', formatterParams: { label: 'Visit', target: '_blank' } }
+          ],
+          data: formattedTournaments
+        };
+
+        // Hide loading spinner and show table
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+
+        const table = new Tabulator("#tableElement", tableData);
+      })
+      .catch(error => {
+        console.error('Error fetching tournaments:', error);
+      });
+  </script>
+</body>
+</html>
